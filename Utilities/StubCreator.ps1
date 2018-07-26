@@ -5,16 +5,21 @@
 
     .PARAMETER ModuleName
         The name of the module to load and generate stubs from. This module must
-        exist on the computer where this function is ran.
+        exist on the computer where this function is run.
 
     .PARAMETER OutputPath
-         Path to where to write the stubs file. The filename will be generated
-         from the module name.
+        Path to where to write the stubs file. The filename will be generated
+        from the module name.
+
+    .PARAMETER ModuleVersion
+        The module version to stub. If no Module Version is defined, it well select
+        the most recent version to stub.
 
     .EXAMPLE
         $writeModuleStubFileParameters = @{
-            ModuleName = 'FailoverClusters'
-            OutputPath = 'C:\Source'
+            ModuleName    = 'FailoverClusters'
+            OutputPath    = 'C:\Source'
+            ModuleVersion = 1.0.0.0
         }
 
         Write-ModuleStubFile @writeModuleStubFileParameters
@@ -153,7 +158,7 @@ function Get-StringParamSection
         {
             if ($count -lt $paramCount)
             {
-                $stringparameter = "        [parameter($mandatory)]`n$objectType        `$$($param.name),`n`n"
+                $stringparameter = "        [Parameter($mandatory)]`n$objectType        `$$($param.name),`n`n"
 
                 $stubparams += $stringparameter
 
@@ -161,7 +166,7 @@ function Get-StringParamSection
             }
             else
             {
-                $stringparameter = "        [parameter($mandatory)]`n$objectType        `$$($param.name)"
+                $stringparameter = "        [Parameter($mandatory)]`n$objectType        `$$($param.name)"
 
                 $stubparams += $stringparameter
             }
