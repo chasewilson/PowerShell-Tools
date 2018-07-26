@@ -292,6 +292,13 @@ function New-StubModuleFile
     } | Out-File (Join-Path -Path $OutputPath -ChildPath "$($Module)Stub.psm1") -Encoding utf8 -Append
 }
 
+<#
+    .SYNOPSIS
+        Builds the parameter section into a string format to use when the stub is written.
+
+    .PARAMETER ParameterSet
+        The set of parameteers to turn into a string format. 
+#>
 function Get-ParameterSetString
 {
     [CmdletBinding()]
