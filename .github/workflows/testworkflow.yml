@@ -14,5 +14,5 @@ jobs:
     steps:
       - name: Dump GitHub context
         env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
+          ISSUE_URL: ${{ github.event.issue.url }}
+        run: echo "$ISSUE_URL"
