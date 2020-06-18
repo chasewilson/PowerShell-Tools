@@ -7,12 +7,12 @@ on:
 defaults:
   run:
     shell: pwsh
-env:
-  PAYLOAD: "${{github.event}}"
 jobs:
   test_job:
     name: Test Job
     runs-on: windows-latest
     steps:
-      - name: Get Information on the job.
-        run: Write-Output $env:PAYLOAD
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
