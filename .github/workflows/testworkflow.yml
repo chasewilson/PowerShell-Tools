@@ -13,6 +13,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Get Information on the job.
-        run: echo '${{github.event}}'
+        run: Get-Content $GITHUB_EVENT_PATH
 
 
