@@ -7,12 +7,12 @@ on:
 defaults:
   run:
     shell: pwsh
+env:
+  PAYLOAD: "${{github.event}}"
 jobs:
   test_job:
     name: Test Job
     runs-on: windows-latest
     steps:
       - name: Get Information on the job.
-        run: Write-Output $GITHUB_EVENT_PATH
-
-
+        run: Write-Output $env:PAYLOAD
