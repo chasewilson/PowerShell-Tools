@@ -36,7 +36,6 @@ function New-DevOpsWorkItem {
         $Areapath = 'TechnicalContent\Azure\Compute\Management\Config\PowerShell',
 
         [Parameter()]
-        [ValidateSet('TechnicalContent\Future')]
         [string]
         $Iterationpath,
 
@@ -193,7 +192,6 @@ function Import-GitHubIssueToTFS
         $AreaPath='TechnicalContent\Azure\Compute\Management\Config\PowerShell',
 
         [Parameter()]
-        [ValidateSet('TechnicalContent\Future')]
         [string]
         $Iterationpath,
 
