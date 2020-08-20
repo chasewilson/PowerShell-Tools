@@ -9,12 +9,28 @@ function Compare-DocVersions
 
         [Parameter()]
         [string]
-        $DocFolder = 'C:\Source\Repos\PowerShell-Docs'
+        $DocFolder = 'C:\Source\Repos\PowerShell-Docs',
+
+        [Parameter()]
+        [ValidateSet('5.1','6','7.0','7.1')]
+        [string]
+        $ReferenceVersion = '5.1'
     )
 
-    $articles = ((Get-ChildItem -Path $DocFolder  -Filter "$DocName.md" -Recurse).FullName) | Select-Object -First 3
+    $allVersions = @('5.1','6','7.0','7.1')
+    $differenceVersions = $allVersions | Where-Object -FilterScript {$_ -ne $ReferenceVersion}
+    $differenceArticles = @()
 
-    Start-Process "${env:ProgramFiles}\Beyond Compare 4\BComp.exe" -ArgumentList $articles
+    foreach ($version in $differenceVersions)
+    {
+        $differenceArticles += (Get-ChildItem -Path "$DocFolder\reference\$version" -Filter "$DocName.md" -Recurse).FullName
+    }
+
+    $referenceArticle = (Get-ChildItem -Path "$DocFolder\reference\$ReferenceVersion" -Filter "$DocName.md" -Recurse).FullName
+    foreach ($differenceArticle in $differenceArticles)
+    {
+        Start-Process -Wait "${env:ProgramFiles}\Beyond Compare 4\BComp.exe" -ArgumentList $referenceArticle,$differenceArticle
+    }
 }
 
 function Open-PowerShellDocs
