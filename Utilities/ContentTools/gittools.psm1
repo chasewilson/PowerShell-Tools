@@ -205,7 +205,7 @@ function Import-GitHubIssueToTFS
         $SkipBranch
     )
 
-    function GetIssue
+    function Get-Issue
     {
         param
         (
@@ -258,7 +258,7 @@ function Import-GitHubIssueToTFS
         $Iterationpath = Get-IterationPath
     }
 
-    $issue = GetIssue -issueurl $issueurl
+    $issue = Get-Issue -issueurl $issueurl
     $description = "Issue: <a href='{0}'>{1}</a><BR>" -f $issue.url,$issue.name
     $description += "Created: {0}<BR>" -f $issue.created_at
     $description += "Labels: {0}<BR>" -f ($issue.labels -join ',')
@@ -380,4 +380,53 @@ function Clear-Git
         git branch -d $branch --force
         git push origin --delete $branch --force
     }
+}
+
+function New-PoshDocsPr
+{
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [string]
+        $Title,
+
+        [Parameter(Mandatory = $true)]
+        [string]
+        $Description
+    )
+
+    # Collect information. Issue #, Azure WI#, File/s Updated
+    $branch = (git branch | Where-Object -FilterScript {$_ -match {^/*}}).Trim('* ')
+    $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
+
+    if (-not $Title)
+    {
+        $Title =
+    }
+}
+
+function Get-PrInfo
+{
+    [CmdletBinding()]
+    param ()
+
+    $branch = (git branch | Where-Object -FilterScript {$_ -match {^/*}}).Trim('* ')
+    $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
+    $workItem = Get-DevOpsWorkItem -GitHubIssue $issueNumber
+}
+
+function Get-DevOpsWorkItem
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        $GitHubIssue
+    )
+
+    $username = ' '
+    $password =  ConvertTo-SecureString $env:MSENG_OAUTH_TOKEN -AsPlainText -Force
+    $cred = [PSCredential]::new($username, $password)
+    $iterationpath = Get-IterationPath
+    $apiurl = "https://dev.azure.com/mseng/TechnicalContent/_apis/wit/workitemsbatch/$" + "Task" +"?api-version=5.1"
 }
