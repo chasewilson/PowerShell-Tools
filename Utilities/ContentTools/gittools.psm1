@@ -392,41 +392,123 @@ function New-PoshDocsPr
 
         [Parameter(Mandatory = $true)]
         [string]
-        $Description
+        $Description,
+
+        [Parameter()]
+        [AllowEmptyString()]
+        [string]
+        $DevopsWorkItem,
+
+        [Parameter()]
+        [switch]
+        $WorkInProgress
     )
 
-    # Collect information. Issue #, Azure WI#, File/s Updated
-    $branch = (git branch | Where-Object -FilterScript {$_ -match {^/*}}).Trim('* ')
-    $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
 
-    if (-not $Title)
+    if (-not $DevopsWorkItem)
     {
-        $Title =
+        $DevOpsWorkItem = Read-Host "You don't have a DevOps Work Item`nPlease enter one or leave blank"
     }
+
+    $prInfo = Get-PrInfo -Title $Title -Description $Description -DevopsWorkItem -WorkInProgress $WorkInProgress
+    $prTemplate = New-PrTemplate
+
 }
 
 function Get-PrInfo
 {
     [CmdletBinding()]
-    param ()
+    param
+    (
+        [Parameter()]
+        [string]
+        $Title,
+
+        [Parameter]
+        [string]
+        $Description,
+
+        [Parameter()]
+        [AllowEmptyString()]
+        [string]
+        $DevopsWorkItem,
+
+        [Parameter()]
+        [switch]
+        $WorkInProgress
+    )
 
     $branch = (git branch | Where-Object -FilterScript {$_ -match {^/*}}).Trim('* ')
     $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
-    $workItem = Get-DevOpsWorkItem -GitHubIssue $issueNumber
+    if (-not $Title)
+    {
+        $filesChanged = Get-ChangedFiles -CurrentBranch $branch
+        if ($filesChanged.count -gt 1)
+        {
+            $extraFileCount = $filesChanged.count - 1
+            $titleFileName = ($filesChanged[0].Split('/'))[-1].Split('.')[0]
+            $Title = "Fixes #$issueNumber - Updates $titleFileName + $extraFileCount more"
+        }
+        else
+        {
+            $titleFileName = ($filesChanged.Split('/'))[-1].Split('.')[0]
+            $Title = "Fixes #$issueNumber - Updates"
+        }
+
+        if($WorkInProgress)
+        {
+            $Title = "[WIP] $Title"
+        }
+    }
+
+    $return = @{
+        Title = $Title
+        Description = $Description
+        Branch = $branch
+        IssueNumber = $issueNumber
+        DevopsWi = $DevopsWorkItem
+    }
+
+    return $return
 }
 
-function Get-DevOpsWorkItem
+function Get-ChangedFiles
 {
     [CmdletBinding()]
-    param (
+    param
+    (
         [Parameter(Mandatory = $true)]
         [string]
-        $GitHubIssue
+        $CurrentBranch,
+
+        [Parameter()]
+        [switch]
+        $UpdateStaging
     )
 
-    $username = ' '
-    $password =  ConvertTo-SecureString $env:MSENG_OAUTH_TOKEN -AsPlainText -Force
-    $cred = [PSCredential]::new($username, $password)
-    $iterationpath = Get-IterationPath
-    $apiurl = "https://dev.azure.com/mseng/TechnicalContent/_apis/wit/workitemsbatch/$" + "Task" +"?api-version=5.1"
+    if ($UpdateStaging)
+    {
+        git checkout staging
+        git fetch upstream staging
+        git rebase upstream/staging
+        git push
+    }
+
+    git checkout $CurrentBranch
+    $files = git diff --name-only staging...
+
+    return $files
+}
+
+function New-PrTemplate
+{
+    [CmdletBinding()]
+    param ()
+
+    $PrTemplate = [ordered]@{
+        PrSummary = ''
+        PrContext = ''
+        TableOfContentS = (New-TableOfContents)
+        PRCheckList = (New-PrChecklist)
+    }5
 }
