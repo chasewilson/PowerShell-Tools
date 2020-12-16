@@ -510,5 +510,5 @@ function New-PrTemplate
         PrContext = ''
         TableOfContentS = (New-TableOfContents)
         PRCheckList = (New-PrChecklist)
-    }5
+    }
 }
