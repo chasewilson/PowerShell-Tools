@@ -348,8 +348,6 @@ function Clear-Git
         [string]
         $MainBranch = 'staging'
     )
-
-
     # Checkout main branch to avoid deleting
     git checkout $MainBranch
 
@@ -400,19 +398,86 @@ function New-PoshDocsPr
         $DevopsWorkItem,
 
         [Parameter()]
+        [string]
+        $UserName = 'chasewilson',
+
+        [Parameter()]
+        [string]
+        $BaseBranch = 'staging',
+
+        [Parameter()]
         [switch]
         $WorkInProgress
     )
-
 
     if (-not $DevopsWorkItem)
     {
         $DevOpsWorkItem = Read-Host "You don't have a DevOps Work Item`nPlease enter one or leave blank"
     }
 
-    $prInfo = Get-PrInfo -Title $Title -Description $Description -DevopsWorkItem -WorkInProgress $WorkInProgress
-    $prTemplate = New-PrTemplate
+    $prInfo = Get-PrInfo -Description $Description -DevopsWorkItem $DevopsWorkItem
+    if (-not $Title)
+    {
+        $Title = Get-Title -Branch $prInfo.Branch -Updates $prInfo.UpdatedFiles -IssueNumber $prInfo.IssueNumber -WorkInProgress $WorkInProgress
+    }
 
+    $content = New-PrTemplate -PrInfo $prInfo
+    $body = @{
+        title = $Title
+        body  = $content
+        head  = $UserName + ':' + $prInfo.Branch
+        base  = $BaseBranch
+    } | ConvertTo-Json
+
+    Invoke-PullRequest -Body $body
+}
+
+function New-PRMap
+{
+    param()
+
+    return @(
+        [pscustomobject]@{path = 'reference/5.1'                                ; line = 32},
+        [pscustomobject]@{path = 'reference/7.0'                                ; line = 31},
+        [pscustomobject]@{path = 'reference/7.1'                                ; line = 30},
+        [pscustomobject]@{path = 'reference/7.2'                                ; line = 29},
+        [pscustomobject]@{path = 'reference/docs-conceptual/community'          ; line = 22},
+        [pscustomobject]@{path = 'reference/docs-conceptual/dev-cross-plat'     ; line = 25},
+        [pscustomobject]@{path = 'reference/docs-conceptual/developer'          ; line = 26},
+        [pscustomobject]@{path = 'reference/docs-conceptual/dsc'                ; line = 21},
+        [pscustomobject]@{path = 'reference/docs-conceptual/gallery'            ; line = 24},
+        [pscustomobject]@{path = 'reference/docs-conceptual/install'            ; line = 13},
+        [pscustomobject]@{path = 'reference/docs-conceptual/learn'              ; line = 14},
+        [pscustomobject]@{path = 'reference/docs-conceptual/learn/deep-dives'   ; line = 16},
+        [pscustomobject]@{path = 'reference/docs-conceptual/learn/ps101'        ; line = 15},
+        [pscustomobject]@{path = 'reference/docs-conceptual/learn/remoting'     ; line = 17},
+        [pscustomobject]@{path = 'reference/docs-conceptual/samples'            ; line = 23},
+        [pscustomobject]@{path = 'reference/docs-conceptual/whats-new'          ; line = 18},
+        [pscustomobject]@{path = 'reference/docs-conceptual/windows-powershell' ; line = 19}
+    )
+}
+
+function Sync-Path
+{
+    param
+    (
+        [Parameter()]
+        [string]
+        $Path,
+
+        [Parameter()]
+        $PathMap
+    )
+
+    foreach ($map in $PathMap)
+    {
+        if ($Path.StartsWith($map.path))
+        {
+            $line = $map.line
+        }
+    }
+
+    $line
 }
 
 function Get-PrInfo
@@ -422,59 +487,94 @@ function Get-PrInfo
     (
         [Parameter()]
         [string]
-        $Title,
-
-        [Parameter]
-        [string]
         $Description,
 
         [Parameter()]
         [AllowEmptyString()]
         [string]
-        $DevopsWorkItem,
+        $DevopsWorkItem
+    )
+
+    $branch = git branch --show-current
+    $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
+    $updates = Get-ChangedFiles -CurrentBranch $branch -UpdateStaging
+
+    $return = @{
+        Description  = $Description
+        Branch       = $branch
+        IssueNumber  = $issueNumber
+        DevopsWi     = $DevopsWorkItem
+        UpdatedFiles = $updates
+    }
+
+    return $return
+}
+
+function Get-Title
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter()]
+        [string[]]
+        $Branch,
 
         [Parameter()]
-        [switch]
+        [string[]]
+        $Updates,
+
+        [Parameter()]
+        [string]
+        $IssueNumber,
+
+        [Parameter()]
+        [bool]
         $WorkInProgress
     )
 
-    $branch = (git branch | Where-Object -FilterScript {$_ -match {^/*}}).Trim('* ')
-    $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
-    if (-not $Title)
+    $uniqueFiles = Get-UniqueFiles -Files $Updates
+    if ($uniqueFiles.count -gt 1)
     {
-        $filesChanged = Get-ChangedFiles -CurrentBranch $branch
-        if ($filesChanged.count -gt 1)
-        {
-            $extraFileCount = $filesChanged.count - 1
-            $titleFileName = ($filesChanged[0].Split('/'))[-1].Split('.')[0]
-            $Title = "Fixes #$issueNumber - Updates $titleFileName + $extraFileCount more"
-        }
-        else
-        {
-            $titleFileName = ($filesChanged.Split('/'))[-1].Split('.')[0]
-            $Title = "Fixes #$issueNumber - Updates"
-        }
-
-        if($WorkInProgress)
-        {
-            $Title = "[WIP] $Title"
-        }
+        $extraFileCount = $uniqueFiles.count - 1
+        $titleFileName = $uniqueFiles[0]
+        $title = "Fixes #$IssueNumber - Updates $titleFileName + $extraFileCount more"
+    }
+    else
+    {
+        $title = "Fixes #$IssueNumber - Updates $uniqueFiles"
     }
 
-    $return = @{
-        Title = $Title
-        Description = $Description
-        Branch = $branch
-        IssueNumber = $issueNumber
-        DevopsWi = $DevopsWorkItem
+    if($WorkInProgress)
+    {
+        $title = "[WIP] $Title"
     }
 
+    return $title
+}
+
+function Get-UniqueFiles
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter()]
+        [string[]]
+        $Files
+    )
+    $return = @()
+    foreach ($file in $Files)
+    {
+        $return += ($file.Split('/'))[-1].Split('.')[0]
+    }
+
+    $return = $return | Select-Object -Unique
     return $return
 }
 
 function Get-ChangedFiles
 {
     [CmdletBinding()]
+    [OutputType([string[]])]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -488,13 +588,13 @@ function Get-ChangedFiles
 
     if ($UpdateStaging)
     {
-        git checkout staging
-        git fetch upstream staging
-        git rebase upstream/staging
-        git push
+        $null = git checkout staging
+        $null = git fetch upstream staging
+        $null = git rebase upstream/staging
+        $null = git push
     }
 
-    git checkout $CurrentBranch
+    $null = git checkout $CurrentBranch
     $files = git diff --name-only staging...
 
     return $files
@@ -503,12 +603,118 @@ function Get-ChangedFiles
 function New-PrTemplate
 {
     [CmdletBinding()]
-    param ()
+    param
+    (
+        [Parameter()]
+        $PrInfo
+    )
 
-    $PrTemplate = [ordered]@{
-        PrSummary = ''
-        PrContext = ''
-        TableOfContentS = (New-TableOfContents)
-        PRCheckList = (New-PrChecklist)
+    $template = Format-PrTemplate -UpdatedFiles $PrInfo.UpdatedFiles
+    switch (7,6,2)
+    {
+        (2)
+        {
+            $template[2] = $PrInfo.Description
+        }
+        (6)
+        {
+            if ($PrInfo.IssueNumber)
+            {
+                $template[6] = "Fixes #$($PrInfo.IssueNumber)"
+            }
+            else {
+                $template[6] = "No Linked issues"
+            }
+        }
+        (7)
+        {
+            if ($PrInfo.DevopsWi)
+            {
+                $template[7] = "Fixes AB#$($PrInfo.DevopsWi)"
+            }
+            else {
+                $template[7] = "No Linked Azure Work Items"
+            }
+        }
+    }
+
+    $content = $template -join "`r`n"
+    return $content
+}
+
+function Format-PrTemplate
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter()]
+        [array]
+        $UpdatedFiles
+    )
+
+    $pathMap = New-PRMap
+    [System.Collections.ArrayList]$template = Get-Content 'C:\Source\Repos\PowerShell-Docs\.github\PULL_REQUEST_TEMPLATE.md'
+
+    foreach ($file in $UpdatedFiles)
+    {
+        $line = Sync-Path -Path $file -PathMap $pathMap
+        $template[$line] = $template[$line] -replace [regex]::Escape('[ ]'),'[x]'
+    }
+
+    foreach ($num in 36..41){
+        $template[$num] = $template[$num] -replace [regex]::Escape('[ ]'),'[x]'
+    }
+
+    foreach ($i in 1..6)
+    {
+        if ($i -lt 2)
+        {
+            $template.RemoveAt(1)
+        }
+        else
+        {
+            $template.RemoveAt(3)
+        }
+    }
+
+    foreach ($num in 1..5)
+    {
+        if ($num -lt 3)
+        {
+            $template.Insert(1, '')
+        }
+        else {
+            $template.Insert(5, '')
+        }
+    }
+
+    return $template
+}
+
+function Invoke-PullRequest
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter()]
+        $Body
+    )
+
+    $hdr = @{
+        Accept        = 'application/vnd.github.VERSION.raw+json'
+        Authorization = "token ${Env:GITHUB_OAUTH_TOKEN}"
+    }
+
+    $apiurl = 'https://api.github.com/repos/MicrosoftDocs/PowerShell-Docs/pulls'
+    try
+    {
+        $i = Invoke-RestMethod -Uri $apiurl -Headers $hdr -Method POST -Body $Body
+        Start-Process $i.html_url
+    }
+    catch [Microsoft.PowerShell.Commands.HttpResponseException]
+    {
+        $e = $_.ErrorDetails.Message | ConvertFrom-Json | Select-Object -ExpandProperty errors
+        write-error $e.message
+        $error.Clear()
     }
 }

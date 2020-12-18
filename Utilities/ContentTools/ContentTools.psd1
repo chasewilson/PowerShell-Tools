@@ -24,7 +24,8 @@
       # gittools
         "Clear-Git",
         "Import-GitHubIssueToTFS",
-        "New-DevOpsWorkItem"
+        "New-DevOpsWorkItem",
+        "New-PoshDocsPr"
     )
 #    CmdletsToExport = @()
 #    VariablesToExport = '*'
