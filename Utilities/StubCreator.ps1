@@ -43,7 +43,7 @@ function Write-ModuleStubFile
 
     if (Test-Path -Path "$OutputPath\$($ModuleName)Stub.psm1")
     {
-        Remove-Item -Path "$OutputPath\$($ModuleName)Stub.psm1" 
+        Remove-Item -Path "$OutputPath\$($ModuleName)Stub.psm1"
     }
 
     if ($null -ne $ModuleVersion)
@@ -51,7 +51,7 @@ function Write-ModuleStubFile
         $fqModule = @{
             ModuleName = $ModuleName
             ModuleVersion = $ModuleVersion
-        } 
+        }
     }
     else
     {
@@ -66,9 +66,9 @@ function Write-ModuleStubFile
     New-StubModuleFile -Path "$OutputPath\$($ModuleName)Stub.psm1" -Module $fqModule.ModuleName
 
     Import-Module -FullyQualifiedName $fqModule
-    $cmdletToStub = Get-Command -FullyQualifiedModule $fqModule 
+    $cmdletToStub = Get-Command -FullyQualifiedModule $fqModule
 
-    foreach ($command in $cmdletToStub) 
+    foreach ($command in $cmdletToStub)
     {
         $parametersToAdd = Get-StubParameters -Command $command
 
@@ -297,7 +297,7 @@ function New-StubModuleFile
         Builds the parameter section into a string format to use when the stub is written.
 
     .PARAMETER ParameterSet
-        The set of parameteers to turn into a string format. 
+        The set of parameteers to turn into a string format.
 #>
 function Get-ParameterSetString
 {
@@ -321,7 +321,7 @@ function Get-ParameterSetString
         {
             $mandatory = $null
         }
-        
+
         if ($count -lt $ParameterSet.Keys.Count)
         {
             $returnSet += "        [Parameter($($mandatory)ParameterSetName = `'$($key)`')]`n"

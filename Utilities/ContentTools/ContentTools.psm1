@@ -12,12 +12,12 @@ function Compare-DocVersions
         $DocFolder = 'C:\Source\Repos\PowerShell-Docs',
 
         [Parameter()]
-        [ValidateSet('5.1','6','7.0','7.1')]
+        [ValidateSet('5.1','7.0','7.1', '7.2')]
         [string]
         $ReferenceVersion = '5.1'
     )
 
-    $allVersions = @('5.1','6','7.0','7.1')
+    $allVersions = @('5.1','7.0','7.1', '7.2')
     $differenceVersions = $allVersions | Where-Object -FilterScript {$_ -ne $ReferenceVersion}
     $differenceArticles = @()
 
@@ -47,7 +47,7 @@ function Open-PowerShellDocs
         $DocFolder = 'C:\Source\Repos\PowerShell-Docs',
 
         [Parameter()]
-        [ValidateSet('5.1', '6', '7.0', '7.1')]
+        [ValidateSet('5.1', '7.0', '7.1', '7.2')]
         [string[]]
         $Version
     )
