@@ -407,12 +407,23 @@ function New-PoshDocsPr
 
         [Parameter()]
         [switch]
-        $WorkInProgress
+        $WorkInProgress,
+
+        [Parameter()]
+        [switch]
+        $GetDevOpsWorkItem
     )
+
+    Test-GitChanges
 
     if (-not $DevopsWorkItem)
     {
-        $DevOpsWorkItem = Read-Host "You don't have a DevOps Work Item`nPlease enter one or leave blank"
+        $DevOpsWorkItem = Get-DevOpsWorkItem
+
+        if (-not $DevopsWorkItem)
+        {
+            $DevOpsWorkItem = Read-Host "Could not find DevOps Work Item for current branch.`nPlease enter one or leave blank"
+        }
     }
 
     $prInfo = Get-PrInfo -Description $Description -DevopsWorkItem $DevopsWorkItem
@@ -430,6 +441,53 @@ function New-PoshDocsPr
     } | ConvertTo-Json
 
     Invoke-PullRequest -Body $body
+}
+
+function Get-DevOpsWorkItem
+{
+    [CmdletBinding()]
+    param ()
+
+    $branch = git branch --show-current
+    $issueNumber = ($branch | Select-String -Pattern '(?<=.*ghi).*\d').Matches.Value
+
+    $uri = 'https://dev.azure.com/mseng/TechnicalContent/_apis/wit/wiql?api-version=6.1-preview.2'
+    $username = ' '
+    $password = ConvertTo-SecureString -String $env:MSENG_OAUTH_TOKEN -AsPlainText
+    $cred = [PSCredential]::new($username, $password)
+
+    $body = @{
+        query = @"
+select [System.Id]
+from WorkItems
+where [System.TeamProject] = 'TechnicalContent'
+  AND [System.AreaPath] = 'TechnicalContent\Azure\Compute\Management\Config\PowerShell'
+  AND [System.Title] contains 'GitHub #$issueNumber'
+"@
+}
+
+    $query = $body | ConvertTo-Json
+    $params = @{
+        uri = $uri
+        Authentication = 'Basic'
+        Credential = $cred
+        Method = 'POST'
+        ContentType = 'application/json'
+        Body = $query
+    }
+
+    $restRequest = (Invoke-RestMethod @params).workItems
+
+    if ($restRequest)
+    {
+        $return = $restRequest.id
+    }
+    else
+    {
+        $return = $null
+    }
+
+    $return
 }
 
 function New-PRMap
@@ -716,5 +774,42 @@ function Invoke-PullRequest
         $e = $_.ErrorDetails.Message | ConvertFrom-Json | Select-Object -ExpandProperty errors
         write-error $e.message
         $error.Clear()
+    }
+}
+
+function Test-GitChanges
+{
+    [CmdletBinding()]
+    param ()
+
+    $status = git status
+    if ($status -match '.*Changes not staged for commit.*')
+    {
+        $message = "You have unstaged changes. Would you like to automatically commit them? Y/N"
+        $response = Read-Host $message
+
+        while ($response -ne 'Y' -and $response -ne 'N')
+        {
+            Write-Output "'$response' is not a valid answer."
+            $response = Read-Host "Would you like to automatically commit your unstaged changes? Y/N"
+        }
+
+        if ($response -eq 'Y')
+        {
+            $commitMessage = Read-Host "Please enter commit message or leave blank for automatic message"
+            if (! $commitMessage)
+            {
+                $commitMessage = "Automatically committed changes."
+            }
+            git add *
+            git commit -m $commitMessage
+            git push
+        }
+        else
+        {
+            Write-Output "You have chosen not to automatically commit your unstaged changes."
+            Write-Output "This has ended the process without a PR being created."
+            exit
+        }
     }
 }

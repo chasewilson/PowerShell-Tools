@@ -39,8 +39,8 @@ function Open-PowerShellDocs
     param
     (
         [Parameter(Mandatory=$true)]
-        [string]
-        $DocName,
+        [string[]]
+        $DocNames,
 
         [Parameter()]
         [string]
@@ -52,18 +52,23 @@ function Open-PowerShellDocs
         $Version
     )
 
+    $articles = @()
     if ($Version)
     {
-        $articles = @()
-
         foreach ($ver in $Version)
         {
-            $articles += (Get-ChildItem -Path "$DocFolder\reference\$ver" -Filter "$DocName.md" -Recurse).FullName
+            foreach ($doc in $DocNames)
+            {
+                $articles += (Get-ChildItem -Path "$DocFolder\reference\$ver" -Filter "$doc.md" -Recurse).FullName
+            }
         }
     }
     else
     {
-        $articles = (Get-ChildItem -Path $DocFolder  -Filter "$DocName.md" -Recurse).FullName
+        foreach ($doc in $DocNames)
+        {
+            $articles += (Get-ChildItem -Path $DocFolder  -Filter "$doc.md" -Recurse).FullName
+        }
     }
 
     code $articles
