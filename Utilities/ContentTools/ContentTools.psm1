@@ -59,6 +59,11 @@ function Open-PowerShellDocs
         {
             foreach ($doc in $DocNames)
             {
+                if ($doc -match 'https:\/\/')
+                {
+                    $doc = Get-DocNameFromUrl -Url $doc
+                }
+
                 $articles += (Get-ChildItem -Path "$DocFolder\reference\$ver" -Filter "$doc.md" -Recurse).FullName
             }
         }
@@ -67,11 +72,42 @@ function Open-PowerShellDocs
     {
         foreach ($doc in $DocNames)
         {
+            if ($doc -match 'https:\/\/')
+            {
+                $doc = Get-DocNameFromUrl -Url $doc
+            }
+
             $articles += (Get-ChildItem -Path $DocFolder  -Filter "$doc.md" -Recurse).FullName
         }
     }
 
     code $articles
+}
+
+function Get-DocNameFromUrl
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter()]
+        [string]
+        $Url
+    )
+
+    if ($Url -match '.*\.md$')
+    {
+        return ($Url | Select-String -Pattern '([^\/]+)(?=\.md?$)').Matches.Value
+    }
+    elseif ($Url -match '.*\?view.*')
+    {
+        return ($Url | Select-String -Pattern '([^\/]+)(?=\?view?)').Matches.Value
+    }
+    else
+    {
+        throw "Function: Get-DocNameFromUrl
+    URL: $Url
+    Doesn't match convention."
+    }
 }
 
 function Switch-Prompt
