@@ -207,3 +207,43 @@ function Switch-WordWrapSettings
         set-content -path $settingsfile -value $content -force
     }
 }
+
+function Format-Headers
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter()]
+        [string]
+        $FilePath
+    )
+
+    $content = Get-Content -Path $FilePath
+
+    $headerMatches = $content | Select-String -Pattern '^##\s[A-Z]*(?![a-z])(\s[A-Z]*)*'
+    if ($matches)
+    {
+        foreach ($match in $headerMatches)
+        {
+            $newHeader = New-Header -Header $match.ToString()
+            $content = $content -replace $match.ToString(), $newHeader
+        }
+
+        Set-Content -Path $FilePath -Value $content -Force
+    }
+}
+
+function New-Header
+{
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [string]
+        $Header
+    )
+
+    $hTitle = ($Header -split ' ', 2)[1]
+    $returnTitle = (Get-Culture).TextInfo.ToTitleCase($hTitle.ToLower())
+
+    return "## $returnTitle"
+}
