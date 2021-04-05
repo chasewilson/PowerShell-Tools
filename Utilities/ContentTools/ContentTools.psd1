@@ -16,6 +16,7 @@
     FunctionsToExport = @(
       # contenttools
         "Compare-DocVersions",
+        "Format-Headers",
         "Open-PowerShellDocs",
         "Switch-Prompt",
         "Switch-RulerLines",
