@@ -221,7 +221,7 @@ function Format-Headers
     $content = Get-Content -Path $FilePath
 
     $headerMatches = $content | Select-String -Pattern '^##\s[A-Z]*(?![a-z])(\s[A-Z]*)*'
-    if ($matches)
+    if ($headerMatches)
     {
         foreach ($match in $headerMatches)
         {
