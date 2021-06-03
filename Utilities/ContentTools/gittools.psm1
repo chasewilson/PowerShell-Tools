@@ -495,23 +495,24 @@ function New-PRMap
     param()
 
     return @(
-        [pscustomobject]@{path = 'reference/5.1'                                ; line = 32},
-        [pscustomobject]@{path = 'reference/7.0'                                ; line = 31},
-        [pscustomobject]@{path = 'reference/7.1'                                ; line = 30},
-        [pscustomobject]@{path = 'reference/7.2'                                ; line = 29},
-        [pscustomobject]@{path = 'reference/docs-conceptual/community'          ; line = 22},
-        [pscustomobject]@{path = 'reference/docs-conceptual/dev-cross-plat'     ; line = 25},
-        [pscustomobject]@{path = 'reference/docs-conceptual/developer'          ; line = 26},
-        [pscustomobject]@{path = 'reference/docs-conceptual/dsc'                ; line = 21},
-        [pscustomobject]@{path = 'reference/docs-conceptual/gallery'            ; line = 24},
         [pscustomobject]@{path = 'reference/docs-conceptual/install'            ; line = 13},
         [pscustomobject]@{path = 'reference/docs-conceptual/learn'              ; line = 14},
-        [pscustomobject]@{path = 'reference/docs-conceptual/learn/deep-dives'   ; line = 16},
         [pscustomobject]@{path = 'reference/docs-conceptual/learn/ps101'        ; line = 15},
-        [pscustomobject]@{path = 'reference/docs-conceptual/learn/remoting'     ; line = 17},
-        [pscustomobject]@{path = 'reference/docs-conceptual/samples'            ; line = 23},
-        [pscustomobject]@{path = 'reference/docs-conceptual/whats-new'          ; line = 18},
-        [pscustomobject]@{path = 'reference/docs-conceptual/windows-powershell' ; line = 19}
+        [pscustomobject]@{path = 'reference/docs-conceptual/learn/deep-dives'   ; line = 16},
+        [pscustomobject]@{path = 'reference/docs-conceptual/samples'            ; line = 17},
+        [pscustomobject]@{path = 'reference/docs-conceptual/learn/remoting'     ; line = 18},
+        [pscustomobject]@{path = 'reference/docs-conceptual/whats-new'          ; line = 19},
+        [pscustomobject]@{path = 'reference/docs-conceptual/windows-powershell' ; line = 20},
+        [pscustomobject]@{path = 'reference/docs-conceptual/dsc'                ; line = 22},
+        [pscustomobject]@{path = 'reference/docs-conceptual/community'          ; line = 23},
+        [pscustomobject]@{path = 'reference/docs-conceptual/gallery'            ; line = 24},
+        [pscustomobject]@{path = 'reference/docs-conceptual/dev-cross-plat'     ; line = 25},
+        [pscustomobject]@{path = 'reference/docs-conceptual/lang-spec'          ; line = 26},
+        [pscustomobject]@{path = 'reference/docs-conceptual/developer'          ; line = 27},
+        [pscustomobject]@{path = 'reference/7.2'                                ; line = 30},
+        [pscustomobject]@{path = 'reference/7.1'                                ; line = 31},
+        [pscustomobject]@{path = 'reference/7.0'                                ; line = 32},
+        [pscustomobject]@{path = 'reference/5.1'                                ; line = 33}
     )
 }
 
@@ -813,3 +814,218 @@ function Test-GitChanges
         }
     }
 }
+
+function Get-PoShDocsIssueReport
+{
+    param()
+    # Import available stored issues
+    $storedIssues = Get-StoredIssues
+    if ($storedIssues.Count -lt 2)
+    {
+        Import-GitHubIssues
+    }
+
+    # Update stored issues
+
+    # Format data for viewing
+
+    # Output report (Options: console, new csv, formatted text)
+    #Out-GHIDataReport
+}
+
+function Out-GHIDataReport
+{
+    param()
+
+    $data = Get-StoredIssues
+    $labels = $data.Labels | Select-Object -Unique
+    $dataMap = Get-LabelDataMap
+
+    $PRs = $data | Where-Object {$_.Type -eq 'PR'}
+    $issues = $data | Where-Object {$_.Type -eq 'Issue'}
+    $totalCount = $data.Count
+    Remove-Variable 'data'
+
+
+}
+
+function Get-LabelDataMap
+{
+    param()
+
+    $return = @{
+        cmdlet = @(
+            'management'
+            'security'
+            'core'
+            'utility'
+            'powershellget'
+            'archive'
+            'psreadline'
+            'diagnostics'
+            'host'
+            'packagemanagement'
+            'threadjob'
+         )
+    }
+
+    return $return
+}
+
+function Import-GitHubIssues
+{
+    param()
+
+    $hdr = @{
+        Accept = 'application/vnd.github.v3+json'
+        Authorization = "token ${Env:\GITHUB_OAUTH_TOKEN}"
+    }
+
+    $flag = $true
+    $issuePage = 1
+    while ($flag)
+    {
+        $apiurl = "https://api.github.com/repos/MicrosoftDocs/PowerShell-Docs/issues?state=all&per_page=100&page=$issuePage"
+        $issuePage++
+
+        $issues = Invoke-RestMethod -Uri $apiurl -Headers $hdr
+        if ($issues.Count -lt 100)
+        {
+            $flag = $false
+        }
+
+        Out-Issues -Issues $issues
+    }
+}
+
+function Out-Issues
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        $Issues
+    )
+
+    $dataPath = Get-IssueDataPath
+    $allData = [System.Collections.ArrayList]::new()
+    foreach ($issue in $Issues)
+    {
+        $formattedData = Format-IssueData -Issue $issue
+        $allData.Add($formattedData)
+    }
+
+    $linkedPRs = $allData | Where-Object {$_.Type -eq 'PR' -and $_.LinkedIssue -ne ''}
+    foreach ($pr in $linkedPRs)
+    {
+        $prLink = $allData | Where-Object {$_.Number -eq $pr.LinkedIssue}
+        if ($prLink)
+        {
+            $prLink.LinkedPR = $pr.Number
+        }
+    }
+
+    $allData | Export-Csv -Path $dataPath -Append
+}
+
+function Format-IssueData
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        $Issue
+    )
+
+    if ($issue.pull_request)
+    {
+        $type = 'PR'
+        $linkedIssue = Get-LinkedIssueNumber -Body $Issue.Body
+    }
+    else
+    {
+        $type = 'Issue'
+        $linkedPR = $null
+        $linkedIssue = $null
+        $labels = ConvertTo-LabelString -Label $Issue.labels.name
+    }
+
+    $exportIssue = [PSCustomObject]@{
+        Number = $Issue.Number
+        Type        = $type
+        Labels      = $labels
+        Created     = $Issue.created_at
+        Closed      = $Issue.closed_at
+        LinkedIssue = $linkedIssue
+        LinkedPR    = $linkedPR
+        State       = $Issue.state
+    }
+
+    return $exportIssue
+}
+
+function ConvertTo-LabelString
+{
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        $Label
+    )
+
+    foreach ($la in $Label)
+    {
+        if (!$returnString)
+        {
+            $returnString = $la
+        }
+        else
+        {
+            $returnString = "$returnString;$la"
+        }
+    }
+
+    return $returnString
+}
+
+function Get-LinkedIssueNumber
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]
+        $Body
+    )
+
+    $pattern = '(?<=Fixes\s*#)\d{1,5}'
+    $matches = [regex]::matches($Body,$pattern)
+    return $matches.Value
+}
+
+function Get-StoredIssues
+{
+    param()
+
+    $path = Get-IssueDataPath
+    if (!(Test-Path $path))
+    {
+        New-Item -Path $path -Force
+    }
+
+    return (Import-Csv -Path $path)
+}
+
+function Get-IssueDataPath
+{
+    param()
+
+    $cd = [System.Environment]::CurrentDirectory
+    $path = "$path/Data/GHIssues.csv"
+    return $path
+}
+
+function Test-Function
+{
+    Write-Output $PWD
+
+    Write-Output $cd
+}
+

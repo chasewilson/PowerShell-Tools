@@ -27,6 +27,8 @@
         "Import-GitHubIssueToTFS",
         "New-DevOpsWorkItem",
         "New-PoshDocsPr"
+        "Get-PoShDocsIssueReport",
+        "Test-Function"
     )
 #    CmdletsToExport = @()
 #    VariablesToExport = '*'
